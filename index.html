@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Nasiya kalkulyator</title>
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);--bg:#f5f6fa;--card:#fff;--tx:#1b1f2a;--mu:#6b7280;--ac:#2563eb;--bd:#e3e6ee;--ok:#059669}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#12141a;--card:#1c1f28;--tx:#eceef4;--mu:#9aa1b2;--ac:#60a5fa;--bd:#2b2f3b;--ok:#34d399}}
+:root[data-theme="dark"]{--bg:#12141a;--card:#1c1f28;--tx:#eceef4;--mu:#9aa1b2;--ac:#60a5fa;--bd:#2b2f3b;--ok:#34d399}
+*{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--tx);font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;line-height:1.4}
+main{max-width:760px;margin:0 auto;padding:16px}
+h1{font-size:22px;margin:8px 0 16px}
+h2{font-size:15px;margin:0 0 10px;color:var(--mu);font-weight:600}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:14px;margin-bottom:14px}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media(max-width:480px){.row{grid-template-columns:1fr}}
+label{display:block;font-size:13px;color:var(--mu);margin-bottom:4px}
+input{width:100%;padding:10px;border:1px solid var(--bd);border-radius:10px;background:var(--bg);color:var(--tx);font-size:16px}
+button{font:inherit;cursor:pointer;border-radius:10px;border:1px solid var(--bd);background:var(--bg);color:var(--tx);padding:8px 12px}
+.tabs{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.tab.on{background:var(--ac);color:#fff;border-color:var(--ac)}
+.plan{display:grid;grid-template-columns:1fr 1fr auto;gap:8px;margin-bottom:8px;align-items:center}
+.sum div{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px dashed var(--bd);gap:10px}
+.sum div:last-child{border:0;font-weight:700}
+.res{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px}
+.res .p{border:1px solid var(--bd);border-radius:12px;padding:12px;background:var(--bg)}
+.res .m{font-size:13px;color:var(--mu)}
+.res .big{font-size:20px;font-weight:700;color:var(--ok);margin:4px 0}
+.res small{display:block;color:var(--mu)}
+.muted{color:var(--mu);font-size:13px}
+</style>
+</head>
+<body>
+<main>
+<h1>Nasiya kalkulyator</h1>
+
+<div class="card">
+  <div class="row">
+    <div><label>Dollar kursi (1 USD = ? UZS)</label><input id="rate" type="number" inputmode="decimal" placeholder="12800"></div>
+    <div><label>Narx (USD)</label><input id="price" type="number" inputmode="decimal" placeholder="500"></div>
+  </div>
+</div>
+
+<div class="card sum" id="sum"></div>
+
+<div class="card">
+  <h2>Nasiya kompaniyasi</h2>
+  <div class="tabs" id="tabs"></div>
+  <div id="plans"></div>
+  <button id="addPlan">+ Muddat qo'shish</button>
+  <p class="muted">Muddat (oy) va ustama foizni o'zingiz kiriting.</p>
+</div>
+
+<div class="card">
+  <h2 id="resTitle">Natija</h2>
+  <div class="res" id="res"></div>
+</div>
+</main>
+
+<script>
+const DEF={rate:"",price:"",active:"Hamroh",c:{
+ Uzum:[],Hamroh:[{m:3,p:15},{m:6,p:28},{m:9,p:35},{m:12,p:40},{m:18,p:60},{m:24,p:79}],
+ Open:[],Variant:[],BirZum:[],Imanum:[],PayLater:[]}};
+let S;
+try{S=JSON.parse(localStorage.getItem("nasiya_v1"))||DEF}catch(e){S=DEF}
+if(!S||!S.c)S=DEF;
+const $=id=>document.getElementById(id);
+const save=()=>{try{localStorage.setItem("nasiya_v1",JSON.stringify(S))}catch(e){}};
+const fmt=n=>Math.round(n).toLocaleString("en-US").replace(/,/g," ");
+const fee=u=>u<500?5:u<1000?10:u<1500?15:20;
+
+function renderTabs(){
+  $("tabs").innerHTML="";
+  Object.keys(S.c).forEach(n=>{
+    const b=document.createElement("button");
+    b.className="tab"+(n===S.active?" on":"");b.textContent=n;
+    b.onclick=()=>{S.active=n;save();renderAll()};
+    $("tabs").appendChild(b);
+  });
+  const a=document.createElement("button");a.textContent="+ Yangi";
+  a.onclick=()=>{const n=(prompt("Kompaniya nomi:")||"").trim();if(n&&!S.c[n]){S.c[n]=[];S.active=n;save();renderAll()}};
+  $("tabs").appendChild(a);
+  if(Object.keys(S.c).length>1){
+    const d=document.createElement("button");d.textContent="🗑";d.title="Kompaniyani o'chirish";
+    d.onclick=()=>{if(confirm(S.active+" o'chirilsinmi?")){delete S.c[S.active];S.active=Object.keys(S.c)[0];save();renderAll()}};
+    $("tabs").appendChild(d);
+  }
+}
+function renderPlans(){
+  const box=$("plans");box.innerHTML="";
+  S.c[S.active].forEach((pl,i)=>{
+    const r=document.createElement("div");r.className="plan";
+    r.innerHTML='<input type="number" inputmode="numeric" placeholder="Oy" value="'+(pl.m??"")+'"><input type="number" inputmode="decimal" placeholder="Foiz %" value="'+(pl.p??"")+'"><button>✕</button>';
+    const [m,p,x]=r.children;
+    m.oninput=()=>{pl.m=m.value===""?"":+m.value;save();calc()};
+    p.oninput=()=>{pl.p=p.value===""?"":+p.value;save();calc()};
+    x.onclick=()=>{S.c[S.active].splice(i,1);save();renderPlans();calc()};
+    box.appendChild(r);
+  });
+}
+function calc(){
+  const rate=+S.rate,usd=+S.price;
+  if(!(rate>0)||!(usd>0)){
+    $("sum").innerHTML='<span class="muted">Kurs va narxni kiriting.</span>';
+    $("res").innerHTML="";return;
+  }
+  const f=fee(usd),tot=usd+f,uzs=tot*rate,base=uzs*1.12;
+  $("sum").innerHTML=
+   '<div><span>Narx</span><span>'+fmt(usd)+' $</span></div>'+
+   '<div><span>Qo\'shilgan summa</span><span>+'+f+' $</span></div>'+
+   '<div><span>Jami (USD)</span><span>'+fmt(tot)+' $</span></div>'+
+   '<div><span>So\'mda</span><span>'+fmt(uzs)+' so\'m</span></div>'+
+   '<div><span>+12% bilan</span><span>'+fmt(base)+' so\'m</span></div>';
+  $("resTitle").textContent=S.active+" — natija";
+  const list=S.c[S.active].filter(p=>+p.m>0&&p.p!=="");
+  $("res").innerHTML=list.length?"":'<span class="muted">Muddat va foizlarni kiriting.</span>';
+  list.forEach(p=>{
+    const t=base*(1+p.p/100);
+    const d=document.createElement("div");d.className="p";
+    d.innerHTML='<div class="m">'+p.m+' oy · '+p.p+'%</div><div class="big">'+fmt(t/p.m)+' so\'m/oy</div><small>Jami: '+fmt(t)+' so\'m</small><small>Ustama: '+fmt(t-base)+' so\'m</small>';
+    $("res").appendChild(d);
+  });
+}
+function renderAll(){renderTabs();renderPlans();calc()}
+$("rate").value=S.rate;$("price").value=S.price;
+$("rate").oninput=e=>{S.rate=e.target.value;save();calc()};
+$("price").oninput=e=>{S.price=e.target.value;save();calc()};
+$("addPlan").onclick=()=>{S.c[S.active].push({m:"",p:""});save();renderPlans()};
+renderAll();
+</script>
+</body>
+</html>

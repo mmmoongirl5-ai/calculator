@@ -35,7 +35,9 @@ button{font:inherit;cursor:pointer;border-radius:10px;border:1px solid var(--bd)
 </head>
 <body>
 <main>
-<h1>Nasiya kalkulyator</h1>
+<h1>Kalkulyator</h1>
+<div class="tabs" id="nav"></div>
+<div id="pg-nasiya">
 
 <div class="card">
   <div class="row">
@@ -57,6 +59,23 @@ button{font:inherit;cursor:pointer;border-radius:10px;border:1px solid var(--bd)
 <div class="card">
   <h2 id="resTitle">Natija</h2>
   <div class="res" id="res"></div>
+</div>
+</div>
+
+<div id="pg-ortacha" style="display:none">
+<div class="card"><div class="row">
+<div><label>Dollar kursi (1 USD = ? UZS)</label><input id="rate2" type="number" inputmode="decimal" placeholder="12800"></div>
+<div><label>Narx (USD)</label><input id="a_price" type="number" inputmode="decimal" placeholder="500"></div>
+</div></div>
+<div class="card"><h2>O'rtacha</h2><div class="sum" id="a_sum"></div><div class="res" id="a_res"></div></div>
+</div>
+
+<div id="pg-konv" style="display:none">
+<div class="card"><div class="row">
+<div><label>Dollar kursi (1 USD = ? UZS)</label><input id="rate3" type="number" inputmode="decimal" placeholder="12800"></div>
+<div><label>Summa (so'm)</label><input id="c_sum" type="number" inputmode="decimal" placeholder="18673889"></div>
+</div></div>
+<div class="card sum" id="c_res"></div>
 </div>
 </main>
 
@@ -120,15 +139,42 @@ function calc(){
   list.forEach(p=>{
     const t=base*(1+p.p/100);
     const d=document.createElement("div");d.className="p";
-    d.innerHTML='<div class="m">'+p.m+' oy · '+p.p+'%</div><div class="big">'+fmt(t/p.m)+' so\'m/oy</div><small>Jami: '+fmt(t)+' so\'m</small><small>Ustama: '+fmt(t-base)+' so\'m</small>';
+    d.innerHTML='<div class="m">'+p.m+' oy</div><div class="big">'+fmt(t/p.m)+' so\'m</div>';
     $("res").appendChild(d);
   });
 }
 function renderAll(){renderTabs();renderPlans();calc()}
 $("rate").value=S.rate;$("price").value=S.price;
-$("rate").oninput=e=>{S.rate=e.target.value;save();calc()};
+const RI=["rate","rate2","rate3"];
+RI.forEach(id=>{$(id).value=S.rate;$(id).oninput=e=>{S.rate=e.target.value;save();RI.forEach(o=>{if(o!==id)$(o).value=S.rate});calc();avg();conv()}});
 $("price").oninput=e=>{S.price=e.target.value;save();calc()};
 $("addPlan").onclick=()=>{S.c[S.active].push({m:"",p:""});save();renderPlans()};
+
+const PAGES=[["nasiya","Nasiya"],["ortacha","O'rtacha"],["konv","Konverter"]];
+function showPage(p){
+  S.page=p;save();
+  PAGES.forEach(x=>{$("pg-"+x[0]).style.display=x[0]===p?"":"none"});
+  $("nav").innerHTML="";
+  PAGES.forEach(x=>{const b=document.createElement("button");b.className="tab"+(x[0]===p?" on":"");b.textContent=x[1];b.onclick=()=>showPage(x[0]);$("nav").appendChild(b)});
+}
+function avg(){
+  const r=+S.rate,u=+S.ap;
+  if(!(r>0)||!(u>0)){$("a_sum").innerHTML='<span class="muted">Kurs va narxni kiriting.</span>';$("a_res").innerHTML="";return}
+  const t=u*r*1.12;
+  $("a_sum").innerHTML='<div><span>Narx</span><span>'+fmt(u)+' $</span></div><div><span>+12% bilan</span><span>'+fmt(t)+' so\'m</span></div>';
+  $("a_res").innerHTML="";
+  [6,12,18].forEach(m=>{const d=document.createElement("div");d.className="p";d.innerHTML='<div class="m">'+m+' oy</div><div class="big">'+fmt(t/m)+' so\'m</div>';$("a_res").appendChild(d)});
+}
+function conv(){
+  const r=+S.rate,s=+S.cs;
+  if(!(r>0)||!(s>0)){$("c_res").innerHTML='<span class="muted">Kurs va summani kiriting.</span>';return}
+  const usd=s/1.12/r;
+  $("c_res").innerHTML='<div><span>Summa</span><span>'+fmt(s)+' so\'m</span></div><div><span>Dollarda</span><span>'+usd.toLocaleString("en-US",{maximumFractionDigits:2}).replace(/,/g," ")+' $</span></div>';
+}
+$("a_price").value=S.ap||"";$("c_sum").value=S.cs||"";
+$("a_price").oninput=e=>{S.ap=e.target.value;save();avg()};
+$("c_sum").oninput=e=>{S.cs=e.target.value;save();conv()};
+avg();conv();showPage(S.page||"nasiya");
 renderAll();
 </script>
 </body>
